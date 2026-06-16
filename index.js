@@ -103,6 +103,131 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SHOPS MANAGEMENT (Super Admin Only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+app.get('/api/shops', async (req, res) => {
+  try {
+    const decoded = verifyAuth(req);
+    verifySuperAdmin(decoded);
+
+    const { data: shops, error } = await supabase
+      .from('shops')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw { status: 500, error: 'Could not load shops' };
+
+    res.json({ shops, count: shops.length });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
+app.get('/api/shops/:id', async (req, res) => {
+  try {
+    const decoded = verifyAuth(req);
+    verifySuperAdmin(decoded);
+
+    const { data: shop, error } = await supabase
+      .from('shops')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !shop) throw { status: 404, error: 'Shop not found' };
+
+    const { data: orders } = await supabase.from('orders').select('total, status').eq('shop_id', shop.id);
+    const { data: products } = await supabase.from('products').select('id').eq('shop_id', shop.id);
+    const { data: flags } = await supabase.from('feature_flags').select('feature, enabled').eq('shop_id', shop.id);
+
+    res.json({
+      shop,
+      stats: {
+        total_orders: orders?.length || 0,
+        total_revenue: orders?.reduce((sum, o) => sum + o.total, 0) || 0,
+        total_products: products?.length || 0
+      },
+      feature_flags: flags || []
+    });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
+app.post('/api/shops', async (req, res) => {
+  try {
+    const decoded = verifyAuth(req);
+    verifySuperAdmin(decoded);
+
+    const { name, subdomain, category, description, address, phone, owner_email } = req.body;
+    if (!name || !subdomain) return res.status(400).json({ error: 'Name and subdomain required' });
+
+    const { data: existing } = await supabase.from('shops').select('id').eq('subdomain', subdomain).single();
+    if (existing) return res.status(409).json({ error: 'Subdomain already taken' });
+
+    let owner_id = null;
+    if (owner_email) {
+      const { data: invite } = await supabase.auth.admin.inviteUserByEmail(owner_email);
+      owner_id = invite?.user?.id || null;
+    }
+
+    const { data: shop, error } = await supabase
+      .from('shops')
+      .insert({
+        name, subdomain, category, description, address, phone,
+        owner_id,
+        is_active: false, // starts inactive until verified
+        verification_status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) throw { status: 500, error: 'Could not create shop' };
+
+    res.status(201).json({ shop, message: 'Shop created. Pending verification.' });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
+app.patch('/api/shops/:id', async (req, res) => {
+  try {
+    const decoded = verifyAuth(req);
+    verifySuperAdmin(decoded);
+
+    const { name, description, address, phone, is_active, verification_status, theme_color, logo_url, banner_url, tagline } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (address !== undefined) updates.address = address;
+    if (phone !== undefined) updates.phone = phone;
+    if (is_active !== undefined) updates.is_active = is_active;
+    if (verification_status !== undefined) updates.verification_status = verification_status;
+    if (theme_color !== undefined) updates.theme_color = theme_color;
+    if (logo_url !== undefined) updates.logo_url = logo_url;
+    if (banner_url !== undefined) updates.banner_url = banner_url;
+    if (tagline !== undefined) updates.tagline = tagline;
+
+    const { data: shop, error } = await supabase
+      .from('shops')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw { status: 500, error: 'Could not update shop' };
+
+    res.json({ shop, message: 'Shop updated' });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
+app.delete('/api/shops/:id', async (req, res) => {
+  try {
+    const decoded = verifyAuth(req);
+    verifySuperAdmin(decoded);
+
+    await supabase.from('shops').delete().eq('id', req.params.id);
+    res.json({ message: 'Shop deleted' });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
