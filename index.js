@@ -227,6 +227,17 @@ app.delete('/api/shops/:id', async (req, res) => {
   } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
 });
 
+app.patch('/api/products/:id/visibility', async (req, res) => {
+  try {
+    const shop = await getTenant(req);
+    verifyAuth(req);
+    const { visible } = req.body;
+    
+    const { data } = await supabase.from('products').update({ visible }).eq('id', req.params.id).eq('shop_id', shop.id).select().single();
+    res.json({ id: data.id, visible: data.visible, message: `Product ${visible ? 'visible' : 'hidden'}` });
+  } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRODUCTS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -258,9 +269,19 @@ app.patch('/api/products/:id', async (req, res) => {
   try {
     const shop = await getTenant(req);
     verifyAuth(req);
-    const { name, description, price, stock, category, image_url, video_url } = req.body;
+    const { name, description, price, stock, category, image_url, video_url, visible } = req.body;
     
-    const { data } = await supabase.from('products').update({ title: name, description, price, stock, category, image_url, video_url }).eq('id', req.params.id).eq('shop_id', shop.id).select().single();
+    const updates = {};
+    if (name) updates.title = name;
+    if (description !== undefined) updates.description = description;
+    if (price !== undefined) updates.price = price;
+    if (stock !== undefined) updates.stock = stock;
+    if (category !== undefined) updates.category = category;
+    if (image_url !== undefined) updates.image_url = image_url;
+    if (video_url !== undefined) updates.video_url = video_url;
+    if (visible !== undefined) updates.visible = visible;
+
+    const { data } = await supabase.from('products').update(updates).eq('id', req.params.id).eq('shop_id', shop.id).select().single();
     res.json({ id: data.id, message: 'Product updated' });
   } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
 });
@@ -426,10 +447,10 @@ app.get('/api/messages/:recipientId', async (req, res) => {
 app.post('/api/notifications', async (req, res) => {
   try {
     const decoded = verifyAuth(req);
-    const { recipient_id, title, body } = req.body;
+    const { recipient_id, title, body, video_url, video_title } = req.body;
     if (!recipient_id || !title || !body) return res.status(400).json({ error: 'All fields required' });
     
-    const { data } = await supabase.from('notifications').insert({ sender_id: decoded.id, recipient_id, title, body, read: false }).select().single();
+    const { data } = await supabase.from('notifications').insert({ sender_id: decoded.id, recipient_id, title, body, video_url: video_url || null, video_title: video_title || null, read: false }).select().single();
     res.status(201).json({ id: data.id, message: 'Notification sent' });
   } catch (err) { res.status(err.status || 500).json({ error: err.error }); }
 });
