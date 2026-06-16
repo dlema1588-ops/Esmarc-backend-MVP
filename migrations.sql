@@ -111,6 +111,13 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url text;
 
 -- ═════════════════════════════════════════════════════════════════════════════════
+-- UPDATE SHOPS TABLE (add verification_status for super admin control)
+-- ═════════════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'pending';
+-- values: pending, agreed, active, rejected
+
+-- ═════════════════════════════════════════════════════════════════════════════════
 -- INDEXES (for performance)
 -- ═════════════════════════════════════════════════════════════════════════════════
 
