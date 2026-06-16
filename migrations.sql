@@ -118,6 +118,20 @@ ALTER TABLE shops ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'pen
 -- values: pending, agreed, active, rejected
 
 -- ═════════════════════════════════════════════════════════════════════════════════
+-- UPDATE PRODUCTS TABLE (add visible field for show/hide toggle)
+-- ═════════════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS visible boolean DEFAULT true;
+-- true = show on storefront, false = hide from customers
+
+-- ═════════════════════════════════════════════════════════════════════════════════
+-- UPDATE NOTIFICATIONS TABLE (add video support)
+-- ═════════════════════════════════════════════════════════════════════════════════
+
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS video_url text;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS video_title text;
+
+-- ═════════════════════════════════════════════════════════════════════════════════
 -- INDEXES (for performance)
 -- ═════════════════════════════════════════════════════════════════════════════════
 
